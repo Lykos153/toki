@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+: ${TIMEWARRIORDB:="$HOME/.timewarrior"}
+current_file="${TIMEWARRIORDB}/data/$(date '+%Y-%m.data')"
+
+$EDITOR $current_file
