@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+
+beginswith() { case $2 in "$1"*) true;; *) false;; esac; }
+hasannotation() { test "$(timew get "dom.tracked.${1}.json" | jq .annotation)" != "null"; }
+
+get_raw_annotation() {
+    id="$1"
+    if hasannotation "${id}"; then
+        timew get "dom.tracked.${id}.json" | jq -r .annotation
+    fi
+}
+
+encode_annotation () { sed -z "s/\n/$line_separator/g;s/$line_separator$/\n/" ; }
+decode_annotation () { sed -z "s/$line_separator/\n/g;" ; }
+
+line_separator="${TIMEWARRIOR_NOTE_SEPARATOR:=";; "}"
+
+if [[ "${1:-}" == '--help' ]]; then
+	# :nocov:
+	cat <<- END
+	NAME
+	       timew-note - Add, read and edit multi-line notes with multiple intervals
+
+	SYNOPSIS
+	       timew note [<id>...] [note]
+	       timew note edit [<id>...]
+
+	DESCRIPTION
+         Adds a note to one or more intervals.
+
+         If no id is given, it operates on the most recent (or currently active) one.
+         If no note is given, it prints out the notes from the intervals.
+
+         edit
+            Open the note file of the interval in \$EDITOR. Supports only one interval.
+
+	SEE ALSO
+	       timew-annotate
+	END
+	# :nocov:
+	exit 0
+elif [ "${1:-""}" = "edit" ]; then
+    if [[ $# -gt 2 ]]; then
+        echo "ERROR: edit does not support more than one id"
+        exit 1
+    fi
+    edit="true"
+    shift
+fi
+
+args=( "$@" )
+for arg in "${args[@]}"; do
+    if beginswith "@" "$arg"; then
+        ids="${ids:-""} ${arg#"@"}"
+        shift
+    else
+        note="$*"
+        break
+    fi
+done
+
+for id in ${ids:="1"}; do
+    if [ "${edit:-"false"}" = "true" ]; then
+        file_name="$(mktemp toki-note.XXXXX)"
+        get_raw_annotation "${id}" | decode_annotation > "$file_name"
+        $EDITOR "$file_name"
+        timew annotate "@${id}" "$(encode_annotation < "$file_name")" &&
+        rm "$file_name" ||
+        echo "Error adding note to @${id}. Notes can be retrieved from $file_name"
+    elif [ -n "${note:-""}" ]; then
+        raw_annotation="$(get_raw_annotation "${id}")"
+        raw_note="$(echo "${note}" | encode_annotation)"
+
+        if [ -n "$raw_annotation" ]; then
+            raw_annotation="${raw_annotation}${line_separator}${raw_note}"
+        else
+            raw_annotation="${raw_note}"
+        fi
+        timew annotate "@${id}" "${raw_annotation}" >/dev/null &&
+        echo "Added note \"$note\" to @${id}" ||
+        echo "Error adding note \"$note\" to @${id}"
+    else
+        echo "Notes for @${id}:"
+        get_raw_annotation "${id}" | decode_annotation
+        echo
+    fi
+done
+
