@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -eu -o pipefail
+shopt -u expand_aliases
+IFS=$'\n\t'
+
+if [[ "${1:-}" == '--help' ]]; then
+	# :nocov:
+	cat <<- END
+	NAME
+	       timew-backfill - cancel and restart an interval at the end of the previous one
+
+	SYNOPSIS
+	       timew backfill [<date>]
+
+	DESCRIPTION
+	       If there is an open interval, it is abandoned and restarted again at the end of the previous interval,
+	       with the same tags.
+
+	SEE ALSO
+	       timew-cancel, timew-stop, timew-continue, timew-start, timew-restart
+	END
+	# :nocov:
+	exit 0
+fi
+
+if [[ $(timew get dom.active || true) -eq 0 ]]; then
+	echo 'There is no active time tracking.'; exit 1
+fi
+
+timestamp="$(timew get dom.tracked.2.json | jq -r '.end')"
+
+toki restart "$timestamp"
