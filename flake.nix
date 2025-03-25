@@ -36,7 +36,7 @@
 
       meta = with lib; {
         description = "A Bash wrapper around the Timewarrior CLI that aims to improve its usability.";
-        homepage = https://github.com/lykos153/toki;
+        homepage = "https://github.com/lykos153/toki";
         license = licenses.isc;
         platforms = platforms.all;
       };
